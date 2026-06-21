@@ -1,0 +1,1043 @@
+import pygame
+import random  
+import math  
+import os
+
+pygame.init()
+
+# Library of the game's constants
+white = (255, 255, 255)
+black = (0, 0, 0)
+gray = (128, 128, 128)
+dark_green = (0, 100, 0)
+red = (200, 0, 0)          
+orange = (255, 140, 0)      
+gold = (255, 215, 0)
+light_green = (0, 255, 100)
+blue = (50, 150, 255)
+dark_blue = (30, 100, 200)
+volcanic_lava = (255, 69, 0)
+purple_hazard = (148, 0, 211)
+deep_crimson = (150, 0, 0)
+heavenly_gold = (255, 248, 220)
+heavenly_blue = (240, 248, 255)
+
+width = 600
+height = 800
+
+# --- GLOBAL DIMENSIONS ---
+PLATFORM_W = 150
+PLATFORM_H = 190
+BOOSTER_W = 40
+BOOSTER_H = 30
+
+# Game variables
+X = 200
+Y = 400  
+score = 0  
+high_score = 0  
+
+# Initial platform blueprints
+INITIAL_PLATFORMS = [
+    [200, 600, PLATFORM_W, PLATFORM_H, "intact", 50],
+    [50, 400, PLATFORM_W, PLATFORM_H, "intact", -1],
+    [350, 200, PLATFORM_W, PLATFORM_H, "intact", -1],
+    [150, 0, PLATFORM_W, PLATFORM_H, "intact", -1],
+    [380, -200, PLATFORM_W, PLATFORM_H, "intact", -1],
+    [200, -400, PLATFORM_W, PLATFORM_H, "intact", -1]
+]
+platforms = [list(p) for p in INITIAL_PLATFORMS]
+
+y_change = 0
+x_change = 0
+player_speed = 5
+jump = False
+
+# Clear screen flags when stages change
+projectiles_cleared_at_70 = False
+projectiles_cleared_at_150 = False
+
+# --- PHYSICS VARIABLES ---
+is_crouching = False
+crouch_timer = 0
+CROUCH_DURATION = 6  
+
+# --- BOOSTER STATE VARIABLES ---
+is_boosting = False
+booster_timer = 0
+BOOSTER_DURATION = 120  
+booster_speed = 14      
+
+# --- GAME STATE ---
+game_state = "MENU"  
+
+print("Welcome to the game of Swampy Jumper!\n")
+
+# --- IMAGE LOADING SECTION ---
+try:
+    img_original = pygame.image.load(r"C:\Users\PC\Downloads\DOODLE JUMP FROG(latest).png")
+except pygame.error:
+    img_original = pygame.Surface((150, 150), pygame.SRCALPHA)
+    pygame.draw.circle(img_original, (34, 139, 34), (75, 75), 60)
+
+img_normal = pygame.transform.scale(img_original, (150, 150))
+img_squished = pygame.transform.scale(img_original, (150, 125))
+
+img_boosting_visual = img_normal.copy()
+img_boosting_visual.fill((255, 100, 0, 150), special_flags=pygame.BLEND_RGBA_MULT)
+
+# STAGE 1 IMAGES
+try: 
+    platform_img = pygame.image.load(r"C:\Users\PC\Downloads\lates log drawing.png")
+except pygame.error:
+    platform_img = pygame.Surface((PLATFORM_W, PLATFORM_H))
+    platform_img.fill(dark_green)
+platform_img = pygame.transform.scale(platform_img, (PLATFORM_W, PLATFORM_H))
+
+try: 
+    broken_platform_img = pygame.image.load(r"C:\Users\PC\Downloads\broken_log-removebg-preview.png")
+except pygame.error:
+    broken_platform_img = pygame.Surface((PLATFORM_W, PLATFORM_H), pygame.SRCALPHA)
+    pygame.draw.rect(broken_platform_img, gray, (0, 0, PLATFORM_W, PLATFORM_H // 3))
+broken_platform_img = pygame.transform.scale(broken_platform_img, (PLATFORM_W, PLATFORM_H))
+
+try: 
+    bg_img = pygame.image.load(r"C:\Users\PC\Downloads\background.png")
+except pygame.error:
+    bg_img = pygame.Surface((width, height))
+    bg_img.fill((100, 149, 237))  
+bg_img = pygame.transform.scale(bg_img, (width, height))
+
+
+# STAGE 2 IMAGES (Volcanic)
+try: 
+    platform_stage2_img = pygame.image.load(r"C:\Users\PC\Downloads\platform_2-removebg-preview.png")
+except pygame.error:
+    platform_stage2_img = pygame.Surface((PLATFORM_W, PLATFORM_H))
+    platform_stage2_img.fill((139, 69, 19))  
+platform_stage2_img = pygame.transform.scale(platform_stage2_img, (PLATFORM_W, PLATFORM_H))
+
+try: 
+    broken_platform_stage2_img = pygame.image.load(r"C:\Users\PC\Downloads\broken_plat2-removebg-preview.png")
+except pygame.error:
+    broken_platform_stage2_img = pygame.Surface((PLATFORM_W, PLATFORM_H), pygame.SRCALPHA)
+    pygame.draw.rect(broken_platform_stage2_img, (64, 64, 64), (0, 0, PLATFORM_W, PLATFORM_H // 3))  
+broken_platform_stage2_img = pygame.transform.scale(broken_platform_stage2_img, (PLATFORM_W, PLATFORM_H))
+
+try: 
+    bg_stage2_img = pygame.image.load(r"C:\Users\PC\Downloads\3rd stage bg.jpg")
+except pygame.error:
+    bg_stage2_img = pygame.Surface((width, height))
+    bg_stage2_img.fill((75, 0, 130))  
+bg_stage2_img = pygame.transform.scale(bg_stage2_img, (width, height))
+
+
+# STAGE 3 IMAGES (Heaven)
+try: 
+    bg_stage3_img = pygame.image.load(r"C:\Users\PC\Downloads\last bg.jpg")
+    bg_stage3_img = pygame.transform.scale(bg_stage3_img, (width, height))
+except pygame.error:
+    bg_stage3_img = pygame.Surface((width, height))
+    bg_stage3_img.fill((220, 245, 255))
+
+try: 
+    platform_stage3_img = pygame.image.load(r"C:\Users\PC\Downloads\last paltform.png")
+    platform_stage3_img = pygame.transform.scale(platform_stage3_img, (PLATFORM_W, PLATFORM_H))
+except pygame.error:
+    platform_stage3_img = pygame.Surface((PLATFORM_W, PLATFORM_H))
+    platform_stage3_img.fill(heavenly_gold)
+
+try:
+    broken_platform_stage3_img = pygame.image.load(r"C:\Users\PC\Downloads\last broken plat.png")
+    broken_platform_stage3_img = pygame.transform.scale(broken_platform_stage3_img, (PLATFORM_W, PLATFORM_H))
+except pygame.error:
+    broken_platform_stage3_img = pygame.Surface((PLATFORM_W, PLATFORM_H), pygame.SRCALPHA)
+    pygame.draw.rect(broken_platform_stage3_img, heavenly_blue, (0, 0, PLATFORM_W, PLATFORM_H // 3))
+
+# MENU IMAGES
+try:
+    menu_bg_img = pygame.image.load(r"C:\Users\PC\Downloads\title page_bg.png")
+except pygame.error:
+    menu_bg_img = pygame.Surface((width, height))
+    menu_bg_img.fill((24, 38, 28))  
+menu_bg_img = pygame.transform.scale(menu_bg_img, (width, height))
+
+try:
+    title_img = pygame.image.load(r"C:\Users\PC\Downloads\front_page-removebg-preview.png")
+    title_img = pygame.transform.scale(title_img, (450, 250))
+except pygame.error:
+    title_img = None
+
+# --- ENEMY & PROJECTILE IMAGES ---
+# Stage 1 Enemy Assets
+try:
+    enemy_stage1_img = pygame.image.load(r"C:\Users\PC\Downloads\EAGLE-removebg-preview.png")
+except pygame.error:
+    enemy_stage1_img = pygame.Surface((120, 120))
+    enemy_stage1_img.fill(red)
+enemy_stage1_img = pygame.transform.scale(enemy_stage1_img, (120, 100))
+
+try:
+    projectile_stage1_img = pygame.image.load(r"C:\Users\PC\Downloads\EAGLE_PROJECTILE-removebg-preview.png")
+except pygame.error:
+    projectile_stage1_img = pygame.Surface((50, 50))
+    projectile_stage1_img.fill(orange)
+projectile_stage1_img = pygame.transform.scale(projectile_stage1_img, (50, 60))
+
+# Stage 2 Enemy Assets
+try:
+    enemy_stage2_img = pygame.image.load(r"C:\Users\PC\Downloads\SNAKE-removebg-preview.png")
+except pygame.error:
+    enemy_stage2_img = pygame.Surface((150, 150))
+    enemy_stage2_img.fill(purple_hazard)
+enemy_stage2_img = pygame.transform.scale(enemy_stage2_img, (150, 150))
+
+try:
+    projectile_stage2_img = pygame.image.load(r"C:\Users\PC\Downloads\SNAKE_PROJ-removebg-preview.png")
+except pygame.error:
+    projectile_stage2_img = pygame.Surface((50, 50))
+    projectile_stage2_img.fill(volcanic_lava)
+projectile_stage2_img = pygame.transform.scale(projectile_stage2_img, (50, 50))
+
+# Stage 3 Enemy Assets
+try:
+    # Update this path with your actual Stage 3 enemy image!
+    enemy_stage3_img = pygame.image.load(r"C:\Users\PC\Downloads\BOSS3-removebg-preview.png") 
+except pygame.error:
+    enemy_stage3_img = pygame.Surface((100, 150))
+    enemy_stage3_img.fill(deep_crimson)
+    pygame.draw.rect(enemy_stage3_img, heavenly_gold, (0, 0, 100, 50), width=3)
+enemy_stage3_img = pygame.transform.scale(enemy_stage3_img, (100, 150))
+
+
+fps = 60
+font = pygame.font.SysFont("Arial", 30)
+title_font = pygame.font.SysFont("Arial", 45, bold=True)
+button_font = pygame.font.SysFont("Arial", 25, bold=True)
+
+volcanic_font_main = pygame.font.SysFont("Impact", 58)
+volcanic_font_sub = pygame.font.SysFont("Impact", 22)
+
+timer = pygame.time.Clock()
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption("Swampy Jumper")
+
+
+class StageNotification:
+    def __init__(self):
+        self.active = False
+        self.triggered_stage2 = False
+        self.triggered_stage3 = False
+        self.current_stage_context = 2
+        self.alpha = 0
+        self.timer = 0
+        self.current_text = ""
+        self.current_sub = ""
+        self.segment_duration = 170
+        self.fade_duration = 35
+        self.hold_duration = 100
+
+    def trigger(self, stage_number):
+        if stage_number == 2 and not self.triggered_stage2:
+            self.active = True
+            self.triggered_stage2 = True
+            self.current_stage_context = 2
+            self.timer = 0
+            self.alpha = 0
+        elif stage_number == 3 and not self.triggered_stage3:
+            self.active = True
+            self.triggered_stage3 = True
+            self.current_stage_context = 3
+            self.timer = 0
+            self.alpha = 0
+
+    def update(self):
+        if not self.active:
+            return
+
+        self.timer += 1
+
+        if self.current_stage_context == 2:
+            if self.timer <= self.segment_duration:
+                self.current_text = "STAGE 2"
+                self.current_sub = "WARNING: VOLCANIC ZONE AHEAD"
+                local_frame = self.timer
+            elif self.timer <= self.segment_duration * 2:
+                self.current_text = "ARE YOU READY?"
+                self.current_sub = "PREPARE YOURSELF"
+                local_frame = self.timer - self.segment_duration
+            elif self.timer <= self.segment_duration * 3:
+                self.current_text = "IT IS GETTING HOT"
+                self.current_sub = "TEMPERATURE RISING SURFACING NOW"
+                local_frame = self.timer - (self.segment_duration * 2)
+            else:
+                self.active = False
+                self.alpha = 0
+                return
+        else:
+            if self.timer <= self.segment_duration:
+                self.current_text = "STAGE 3"
+                self.current_sub = "THE SKY IS BLEEDING"
+                local_frame = self.timer
+            elif self.timer <= self.segment_duration * 2:
+                self.current_text = "READY TO FACE YOUR SINS?"
+                self.current_sub = "THERE IS NO ESCAPE"
+                local_frame = self.timer - self.segment_duration
+            elif self.timer <= self.segment_duration * 3:
+                self.current_text = "HA HA HA HA..."
+                self.current_sub = "THE ARCHITECT LAUGHS"
+                local_frame = self.timer - (self.segment_duration * 2)
+            elif self.timer <= self.segment_duration * 4:
+                self.current_text = "THEN BE PREPARED"
+                self.current_sub = "FOR THE END OF ALL THINGS"
+                local_frame = self.timer - (self.segment_duration * 3)
+            elif self.timer <= self.segment_duration * 5:
+                self.current_text = "JUDGEMENT TIME HAS COME"
+                self.current_sub = "ACCEPT YOUR FATE"
+                local_frame = self.timer - (self.segment_duration * 4)
+            else:
+                self.active = False
+                self.alpha = 0
+                return
+
+        if local_frame <= self.fade_duration:
+            self.alpha = int((local_frame / self.fade_duration) * 255)
+        elif local_frame <= self.fade_duration + self.hold_duration:
+            self.alpha = 255
+        else:
+            elapsed_out = local_frame - (self.fade_duration + self.hold_duration)
+            self.alpha = int(255 - ((elapsed_out / self.fade_duration) * 255))
+            if self.alpha < 0: self.alpha = 0
+
+    def draw(self, surface):
+        if not self.active:
+            return
+
+        banner_w, banner_h = 550, 200
+        overlay = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
+        
+        box_color = (20, 10, 5, 230) if self.current_stage_context == 2 else (10, 0, 0, 245)
+        border_color = volcanic_lava if self.current_stage_context == 2 else deep_crimson
+       
+        pygame.draw.rect(overlay, box_color, (0, 0, banner_w, banner_h), border_radius=18)
+        pygame.draw.rect(overlay, border_color, (0, 0, banner_w, banner_h), width=4, border_radius=18)
+
+        text_main = volcanic_font_main.render(self.current_text, True, border_color)
+        text_sub = volcanic_font_sub.render(self.current_sub, True, gold)
+
+        main_rect = text_main.get_rect(center=(banner_w // 2, banner_h // 2 - 15))
+        sub_rect = text_sub.get_rect(center=(banner_w // 2, banner_h // 2 + 45))
+
+        overlay.blit(text_main, main_rect)
+        overlay.blit(text_sub, sub_rect)
+
+        overlay.set_alpha(self.alpha)
+        surface.blit(overlay, (width // 2 - banner_w // 2, height // 3 - banner_h // 2))
+
+    def reset(self):
+        self.active = False
+        self.triggered_stage2 = False
+        self.triggered_stage3 = False
+        self.alpha = 0
+        self.timer = 0
+
+
+class Enemy:
+    def __init__(self):
+        self.width = 80
+        self.height = 40
+        self.x = random.randint(0, width - self.width)
+        self.y = 40  
+        self.speed = 4
+        self.direction = 1  
+        self.throw_cooldown = 100
+       
+        self.state = "MOVE"
+        self.state_timer = random.randint(100, 200)
+       
+    def update(self, projectiles_list):
+        self.state_timer -= 1
+        if self.state_timer <= 0:
+            if self.state == "MOVE":
+                self.state = "PAUSE"
+                self.state_timer = 70  
+            else:
+                self.state = "MOVE"
+                self.state_timer = random.randint(100, 200)
+
+        if self.state == "MOVE":
+            self.x += self.speed * self.direction
+            if self.x <= 0 or self.x >= width - self.width:
+                self.direction *= -1
+           
+        if self.throw_cooldown > 0:
+            self.throw_cooldown -= 1
+        else:
+            src_x = self.x + self.width // 2
+            src_y = self.y + self.height // 2
+            angle = math.radians(90)
+            projectiles_list.append(Projectile(src_x, src_y, angle, stage_type=1))
+            self.throw_cooldown = random.randint(240, 360)  
+
+    def draw(self, surface):
+        surface.blit(enemy_stage1_img, (self.x, self.y))
+
+
+class Stage2Enemy:
+    def __init__(self):
+        self.width = 90
+        self.height = 45
+        self.x = 0 if random.random() < 0.5 else width - self.width
+        self.y = 110  
+        self.speed = 3.5
+        self.direction = 1 if self.x == 0 else -1  
+        self.throw_cooldown = random.randint(180, 240)
+       
+        self.state = "MOVE"
+        self.state_timer = random.randint(100, 200)
+       
+    def update(self, projectiles_list):
+        self.state_timer -= 1
+        if self.state_timer <= 0:
+            if self.state == "MOVE":
+                self.state = "PAUSE"
+                self.state_timer = 70  
+            else:
+                self.state = "MOVE"
+                self.state_timer = random.randint(100, 200)
+
+        if self.state == "MOVE":
+            self.x += self.speed * self.direction
+            if self.x <= 0:
+                self.x = 0
+                self.direction = 1
+            elif self.x >= width - self.width:
+                self.x = width - self.width
+                self.direction = -1
+           
+        if self.throw_cooldown > 0:
+            self.throw_cooldown -= 1
+        else:
+            src_x = self.x + self.width // 2
+            src_y = self.y + self.height // 2
+            angle = math.radians(random.randint(60, 120))
+            projectiles_list.append(Projectile(src_x, src_y, angle, stage_type=2))
+            self.throw_cooldown = random.randint(360, 480)  
+
+    def draw(self, surface):
+        surface.blit(enemy_stage2_img, (self.x, self.y))
+
+
+class Stage3Enemy:
+    def __init__(self):
+        self.width = 100
+        self.height = 50
+        self.x = random.randint(0, width - self.width)
+        self.y = 40
+        self.speed = 8  # DOUBLED SPEED
+        self.direction = 1
+        self.throw_cooldown = 80
+        self.state = "MOVE"
+        self.state_timer = random.randint(50, 100)
+
+    def update(self, projectiles_list):
+        self.state_timer -= 1
+        if self.state_timer <= 0:
+            if self.state == "MOVE":
+                self.state = "PAUSE"
+                self.state_timer = 40
+            else:
+                self.state = "MOVE"
+                self.state_timer = random.randint(50, 100)
+
+        if self.state == "MOVE":
+            self.x += self.speed * self.direction
+            if self.x <= 0 or self.x >= width - self.width:
+                self.direction *= -1
+
+        if self.throw_cooldown > 0:
+            self.throw_cooldown -= 1
+        else:
+            src_x = self.x + self.width // 2
+            src_y = self.y + self.height
+            angle = math.radians(90)
+            # Shoots a Stage 3 Laser
+            projectiles_list.append(Projectile(src_x, src_y, angle, stage_type=3))
+            self.throw_cooldown = random.randint(120, 180)
+
+    def draw(self, surface):
+        # Now uses the configured image instead of drawing rects
+        surface.blit(enemy_stage3_img, (self.x, self.y))
+
+
+class Projectile:
+    def __init__(self, x, y, angle, stage_type=1):
+        self.size = 20
+        self.x = x - self.size // 2
+        self.y = y
+        self.stage_type = stage_type
+        
+        if self.stage_type == 3:
+            self.base_speed = 13.0 # LASER IS TWICE AS FAST
+        else:
+            self.base_speed = 6.5  
+            
+        self.vx = self.base_speed * math.cos(angle)
+        self.vy = self.base_speed * math.sin(angle)
+
+    def update(self, scroll_speed, world_change):
+        self.x += self.vx
+        self.y += self.vy
+        self.y += scroll_speed
+        if Y <= 400 and world_change < 0:
+            self.y -= world_change
+
+    def draw(self, surface):
+        if self.stage_type == 3:
+            # GLOWING LASER VISUAL
+            pygame.draw.rect(surface, heavenly_gold, (self.x, self.y, 6, 35))
+            pygame.draw.rect(surface, heavenly_blue, (self.x + 1, self.y + 1, 4, 33))
+        elif self.stage_type == 2:
+            surface.blit(projectile_stage2_img, (self.x, self.y))
+        else:
+            surface.blit(projectile_stage1_img, (self.x, self.y))
+
+
+def check_collision(rect_list, jump):
+    global X, Y, y_change, is_crouching, crouch_timer, is_boosting, booster_timer, platforms
+   
+    if is_boosting or is_crouching:
+        return jump
+
+    fall_margin = max(10, y_change + 2)
+    player_feet_y = Y + 100
+    player_feet = pygame.Rect(X + 40, player_feet_y - fall_margin, 10, fall_margin)
+   
+    for i in range(len(rect_list)):
+        if i < len(platforms) and platforms[i][4] == "intact":
+            target_landing_surface = platforms[i][1] + 5
+           
+            if rect_list[i].colliderect(player_feet) and not jump and y_change > 0:
+                if (player_feet_y - y_change) <= target_landing_surface + 5:
+                    if len(platforms[i]) > 5 and platforms[i][5] != -1:
+                        booster_x = platforms[i][0] + platforms[i][5]
+                        booster_y = target_landing_surface - BOOSTER_H
+                        booster_rect = pygame.Rect(booster_x, booster_y, BOOSTER_W, BOOSTER_H)
+                       
+                        if player_feet.colliderect(booster_rect):
+                            is_boosting = True
+                            booster_timer = BOOSTER_DURATION
+                            platforms[i][5] = -1  
+                            break
+
+                    Y = target_landing_surface - 50
+                    y_change = 0
+                    is_crouching = True
+                    crouch_timer = CROUCH_DURATION
+                    break
+    return jump
+
+
+def update_player(y_position):
+    global jump_height, gravity, y_change, jump, score, player_speed, is_crouching, crouch_timer, is_boosting, booster_timer
+   
+    # PHYSICS STAGE 3 (150+ pts)
+    if score >= 150:
+        jump_height = 20.0
+        gravity = 0.58
+        player_speed = 11
+    # PHYSICS STAGE 2 (70+ pts)
+    elif score >= 70:
+        jump_height = 16.5  
+        gravity = 0.46    
+        player_speed = 7  
+    else:
+        jump_height = 15.5
+        gravity = 0.42
+        player_speed = 6
+   
+    if is_boosting:
+        y_change = -booster_speed
+        booster_timer -= 1
+        if booster_timer % 10 == 0:
+            score += 1
+        if booster_timer <= 0:
+            is_boosting = False
+            y_change = 0
+        y_position += y_change
+        return y_position
+
+    if is_crouching:
+        crouch_timer -= 1
+        if crouch_timer <= 0:
+            is_crouching = False
+            jump = True
+        else:
+            return y_position
+           
+    if jump:
+        y_change = -jump_height
+        jump = False
+       
+    y_position += y_change  
+    y_change += gravity
+    return y_position
+ 
+
+def update_platforms(platforms_list, y_position, change):
+    global score  
+
+    if score >= 150:
+        auto_scroll_speed = 3
+    elif score >= 70:
+        auto_scroll_speed = 2
+    else:
+        auto_scroll_speed = 1
+
+    for platform in platforms_list:
+        platform[1] += auto_scroll_speed
+
+    if y_position <= 400 and change < 0:
+        for platform in platforms_list:
+            platform[1] -= change
+
+    if len(platforms_list) > 0:
+        highest_y = min(platform[1] for platform in platforms_list)
+    else:
+        highest_y = 0
+
+    for i in range(len(platforms_list)):
+        if platforms_list[i][1] > height:
+            if score >= 150:
+                new_y = highest_y - random.randint(150, 190)
+            elif score >= 70:
+                new_y = highest_y - random.randint(180, 220)
+            elif 30 <= score < 70:
+                new_y = highest_y - random.randint(100, 150)
+            else:
+                new_y = highest_y - random.randint(200, 250)
+
+            new_x = random.randint(0, width - PLATFORM_W)
+            booster_state = random.randint(0, PLATFORM_W - BOOSTER_W) if random.random() < 0.20 else -1
+           
+            platforms_list[i] = [new_x, new_y, PLATFORM_W, PLATFORM_H, "intact", booster_state]
+            highest_y = new_y
+            score += 1  
+
+    return platforms_list     
+
+
+def draw_button(text, x, y, w, h, normal_color, hover_color):
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
+   
+    if x < mouse[0] < x + w and y < mouse[1] < y + h:
+        pygame.draw.rect(screen, hover_color, (x, y, w, h), border_radius=10)
+        if click[0] == 1:
+            return True
+    else:
+        pygame.draw.rect(screen, normal_color, (x, y, w, h), border_radius=10)
+       
+    text_surf = button_font.render(text, True, white)
+    text_rect = text_surf.get_rect(center=((x + w/2), (y + h/2)))
+    screen.blit(text_surf, text_rect)
+    return False
+
+
+def reset_game():
+    global X, Y, score, platforms, y_change, x_change, jump, projectiles_cleared_at_70, projectiles_cleared_at_150
+    global is_crouching, crouch_timer, is_boosting, booster_timer, boss_enemy, stage2_enemy, stage3_enemy, falling_blocks, stage_alert
+    X = 200
+    Y = 400
+    score = 0
+    platforms = [list(p) for p in INITIAL_PLATFORMS]
+    y_change = 0
+    x_change = 0
+    jump = False
+    projectiles_cleared_at_70 = False
+    projectiles_cleared_at_150 = False
+    is_crouching = False
+    crouch_timer = 0
+    is_boosting = False
+    booster_timer = 0
+    boss_enemy = Enemy()
+    stage2_enemy = Stage2Enemy()
+    stage3_enemy = Stage3Enemy()
+    falling_blocks.clear()
+    stage_alert.reset()
+
+
+def save_game_session():
+    with open("save_file.txt", "w") as f:
+        f.write(f"player_x:{X}\n")
+        f.write(f"player_y:{Y}\n")
+        f.write(f"score:{score}\n")
+        f.write(f"y_change:{y_change}\n")
+        f.write(f"x_change:{x_change}\n")
+        f.write(f"is_boosting:{int(is_boosting)}\n")
+        f.write(f"booster_timer:{booster_timer}\n")
+        f.write(f"is_crouching:{int(is_crouching)}\n")
+        f.write(f"crouch_timer:{crouch_timer}\n")
+        f.write(f"p_cleared_70:{int(projectiles_cleared_at_70)}\n")
+        f.write(f"p_cleared_150:{int(projectiles_cleared_at_150)}\n")
+        f.write(f"stage2_trig:{int(stage_alert.triggered_stage2)}\n")
+        f.write(f"stage3_trig:{int(stage_alert.triggered_stage3)}\n")
+       
+        for p in platforms:
+            f.write(f"plat:{p[0]},{p[1]},{p[2]},{p[3]},{p[4]},{p[5]}\n")
+
+
+def load_game_session():
+    global X, Y, score, platforms, y_change, x_change, is_boosting, booster_timer, is_crouching, crouch_timer, projectiles_cleared_at_70, projectiles_cleared_at_150, falling_blocks, boss_enemy, stage2_enemy, stage3_enemy, stage_alert
+   
+    if not os.path.exists("save_file.txt"):
+        return False
+       
+    loaded_platforms = []
+   
+    try:
+        with open("save_file.txt", "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or ":" not in line:
+                    continue
+               
+                key, val = line.split(":", 1)
+               
+                if key == "player_x": X = float(val)
+                elif key == "player_y": Y = float(val)
+                elif key == "score": score = int(val)
+                elif key == "y_change": y_change = float(val)
+                elif key == "x_change": x_change = float(val)
+                elif key == "is_boosting": is_boosting = bool(int(val))
+                elif key == "booster_timer": booster_timer = int(val)
+                elif key == "is_crouching": is_crouching = bool(int(val))
+                elif key == "crouch_timer": crouch_timer = int(val)
+                elif key in ["p_cleared_100", "p_cleared_70"]: projectiles_cleared_at_70 = bool(int(val))
+                elif key in ["p_cleared_170", "p_cleared_150"]: projectiles_cleared_at_150 = bool(int(val))
+                elif key == "stage2_trig": stage_alert.triggered_stage2 = bool(int(val))
+                elif key == "stage3_trig": stage_alert.triggered_stage3 = bool(int(val))
+                elif key == "plat":
+                    parts = val.split(",")
+                    if len(parts) >= 6:
+                        
+                        p_x = float(parts[0])
+                        p_y = float(parts[1])
+                        p_w = int(float(parts[2]))
+                        p_h = int(float(parts[3]))
+                        p_stat = parts[4]
+                        p_boost = int(float(parts[5]))
+                        loaded_platforms.append([p_x, p_y, p_w, p_h, p_stat, p_boost])
+    except Exception as e:
+        print(f"Error loading save file: {e}")
+        return False
+               
+    if loaded_platforms:
+        platforms = loaded_platforms
+       
+    falling_blocks.clear()
+    boss_enemy = Enemy()
+    stage2_enemy = Stage2Enemy()
+    stage3_enemy = Stage3Enemy()
+    return True
+
+running = True
+boss_enemy = Enemy()
+stage2_enemy = Stage2Enemy()
+stage3_enemy = Stage3Enemy()
+falling_blocks = []
+stage_alert = StageNotification()
+
+while running:
+    timer.tick(fps)
+   
+    # -------------------------------------------------------------
+    # STATE 1: MAIN MENU
+    # -------------------------------------------------------------
+    if game_state == "MENU":
+        screen.blit(menu_bg_img, (0, 0))
+        if title_img:
+            screen.blit(title_img, (width // 2 - 225, 40))
+        else:
+            fallback_text = title_font.render("Swampy Jumper", True, white)
+            fallback_rect = fallback_text.get_rect(center=(width // 2, 150))
+            screen.blit(fallback_text, fallback_rect)
+       
+        screen.blit(img_normal, (width // 2 - 75, 270))
+      
+        if draw_button("START GAME", 200, 460, 200, 50, dark_green, light_green):
+            reset_game()
+            game_state = "GAME"
+            pygame.time.delay(150)
+           
+        if draw_button("LOAD GAME", 200, 530, 200, 50, blue, dark_blue):
+            game_state = "LOAD_GAME"
+            pygame.time.delay(150)
+           
+        if draw_button("SETTINGS", 200, 600, 200, 50, gray, black):
+            game_state = "SETTINGS"
+            pygame.time.delay(150)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+    # -------------------------------------------------------------
+    # STATE 2: SETTINGS SUB-MENU
+    # -------------------------------------------------------------
+    elif game_state == "SETTINGS":
+        screen.blit(menu_bg_img, (0, 0))
+        info_text = title_font.render("Settings Menu", True, white)
+        screen.blit(info_text, info_text.get_rect(center=(width // 2, 200)))
+       
+        desc_text = font.render("Configure game rules or options here.", True, white)
+        screen.blit(desc_text, desc_text.get_rect(center=(width // 2, 350)))
+       
+        if draw_button("BACK TO MENU", 200, 500, 200, 50, red, orange):
+            game_state = "MENU"
+            pygame.time.delay(150)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+    # -------------------------------------------------------------
+    # STATE 3: LOAD GAME SUB-MENU
+    # -------------------------------------------------------------
+    elif game_state == "LOAD_GAME":
+        screen.blit(menu_bg_img, (0, 0))
+        info_text = title_font.render("Saved Profile", True, white)
+        screen.blit(info_text, info_text.get_rect(center=(width // 2, 180)))
+       
+        if os.path.exists("save_file.txt"):
+            desc_text = font.render("Discovered an active safe profile!", True, gold)
+            screen.blit(desc_text, desc_text.get_rect(center=(width // 2, 280)))
+           
+            if draw_button("LAUNCH SAVED RUN", 150, 360, 300, 50, dark_green, light_green):
+                if load_game_session():
+                    game_state = "GAME"
+                else:
+                    print("Could not load the game session.")
+                pygame.time.delay(150)
+        else:
+            desc_text = font.render("No saved sessions discovered.", True, white)
+            screen.blit(desc_text, desc_text.get_rect(center=(width // 2, 300)))
+       
+        if draw_button("BACK TO MENU", 150, 480, 300, 50, red, orange):
+            game_state = "MENU"
+            pygame.time.delay(150)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+    # -------------------------------------------------------------
+    # STATE 4: THE MAIN ACTIVE GAME CYCLE
+    # -------------------------------------------------------------
+    elif game_state == "GAME":
+        stage_alert.update()
+
+        # Render background scene layout
+        if score >= 150:
+            screen.blit(bg_stage3_img, (0, 0))
+            stage_alert.trigger(3)
+        elif score >= 70:
+            screen.blit(bg_stage2_img, (0, 0))
+            stage_alert.trigger(2)
+        else:
+            screen.blit(bg_img, (0, 0))
+       
+        score_text = font.render(f"Score: {score}", True, black if score < 150 else heavenly_blue)
+        screen.blit(score_text, (10, 10))
+       
+        if draw_button("||", width - 60, 10, 50, 40, gray, red):
+            game_state = "PAUSED"
+            pygame.time.delay(150)
+       
+        if not stage_alert.active:
+            # Enemy 1 Spawns between 20 and 70 pts
+            if 20 <= score < 70:
+                boss_enemy.update(falling_blocks)
+                boss_enemy.draw(screen)
+            # Enemy 2 Spawns at 90 pts, leaves at 150 pts
+            if 90 <= score < 150:
+                stage2_enemy.update(falling_blocks)
+                stage2_enemy.draw(screen)
+            # Enemy 3 (Laser) Spawns at 160 pts
+            if score >= 160:
+                stage3_enemy.update(falling_blocks)
+                stage3_enemy.draw(screen)
+           
+        if score >= 70 and not projectiles_cleared_at_70:
+            falling_blocks.clear()
+            projectiles_cleared_at_70 = True
+        if score >= 150 and not projectiles_cleared_at_150:
+            falling_blocks.clear()
+            projectiles_cleared_at_150 = True
+       
+        if not stage_alert.active:
+            if is_boosting:
+                screen.blit(img_boosting_visual, (X, Y + 25))
+            elif is_crouching:
+                screen.blit(img_squished, (X, Y + 25))
+            else:
+                screen.blit(img_normal, (X, Y))
+           
+        blocks = []
+        for i in range(len(platforms)):
+            if not stage_alert.active:
+                if platforms[i][4] == "intact":
+                    if score >= 150:
+                        screen.blit(platform_stage3_img, (platforms[i][0], platforms[i][1]))
+                    elif score >= 70:
+                        screen.blit(platform_stage2_img, (platforms[i][0], platforms[i][1]))
+                    else:
+                        screen.blit(platform_img, (platforms[i][0], platforms[i][1]))
+                   
+                    if len(platforms[i]) > 5 and platforms[i][5] != -1:
+                        b_x = platforms[i][0] + platforms[i][5]
+                        b_y = platforms[i][1] + 15 - BOOSTER_H  
+                        pygame.draw.rect(screen, light_green, (b_x, b_y, BOOSTER_W, BOOSTER_H), border_radius=3)
+                        pygame.draw.rect(screen, gold, (b_x + 5, b_y + 3, BOOSTER_W - 10, BOOSTER_H - 6), border_radius=2)
+                else:
+                    if score >= 150:
+                        screen.blit(broken_platform_stage3_img, (platforms[i][0], platforms[i][1]))
+                    elif score >= 70:
+                        screen.blit(broken_platform_stage2_img, (platforms[i][0], platforms[i][1]))
+                    else:
+                        screen.blit(broken_platform_img, (platforms[i][0], platforms[i][1]))
+               
+            block = pygame.Rect(platforms[i][0], platforms[i][1] + 15, platforms[i][2], 25)
+            blocks.append(block)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+               
+        keys = pygame.key.get_pressed()
+        x_change = 0
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            x_change = -player_speed
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            x_change = player_speed
+                   
+        if not stage_alert.active:
+            X += x_change
+        if X < -75: X = width
+        elif X > width: X = -75
+       
+        if not stage_alert.active:
+            jump = check_collision(blocks, jump)      
+       
+        if score >= 150:
+            auto_scroll_speed = 3
+        elif score >= 70:
+            auto_scroll_speed = 2
+        else:
+            auto_scroll_speed = 1
+       
+        if not stage_alert.active:
+            Y += auto_scroll_speed
+            Y = update_player(Y)
+       
+        if Y < 400 and y_change < 0:
+            Y = 400
+           
+        if not stage_alert.active:
+            platforms = update_platforms(platforms, Y, y_change)
+           
+        player_rect = pygame.Rect(X + 45, Y + 30, 60, 95)  
+        projectiles_to_remove = []
+       
+        for projectile in falling_blocks:
+            if not stage_alert.active:
+                projectile.update(auto_scroll_speed, y_change)
+                projectile.draw(screen)
+            proj_rect = pygame.Rect(projectile.x, projectile.y, projectile.size, projectile.size)
+           
+            for platform in platforms:
+                if platform[4] == "intact":
+                    plat_rect = pygame.Rect(platform[0], platform[1] + 15, platform[2], 25)
+                    if proj_rect.colliderect(plat_rect):
+                        if not stage_alert.active:
+                            platform[4] = "broken"  
+                            if len(platform) > 5:
+                                platform[5] = -1
+                        projectiles_to_remove.append(projectile)
+                        break
+           
+            if proj_rect.colliderect(player_rect) and not is_boosting:
+                game_state = "GAME_OVER"
+                if score > high_score:
+                    high_score = score
+                pygame.time.delay(150)
+
+        for p in projectiles_to_remove:
+            if p in falling_blocks:
+                falling_blocks.remove(p)
+
+        if stage_alert.active:
+            stage_alert.draw(screen)
+
+        if Y > height:
+            game_state = "GAME_OVER"
+            if score > high_score:
+                high_score = score
+            pygame.time.delay(150)
+
+    # -------------------------------------------------------------
+    # STATE 5: PAUSE GAME MENU WINDOW
+    # -------------------------------------------------------------
+    elif game_state == "PAUSED":
+        screen.blit(menu_bg_img, (0, 0))
+        pause_text = title_font.render("Game Paused", True, white)
+        screen.blit(pause_text, pause_text.get_rect(center=(width // 2, 180)))
+
+        if draw_button("RESUME", 175, 290, 250, 50, dark_green, light_green):
+            game_state = "GAME"
+            pygame.time.delay(150)
+
+        if draw_button("SAVE PROGRESS", 175, 360, 250, 50, blue, dark_blue):
+            save_game_session()
+            print("Session saved successfully!")
+            game_state = "GAME"  
+            pygame.time.delay(150)
+
+        if draw_button("EXIT TO MENU", 175, 430, 250, 50, red, orange):
+            game_state = "MENU"
+            pygame.time.delay(150)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+    # -------------------------------------------------------------
+    # STATE 6: GAME OVER SUMMARY WINDOW
+    # -------------------------------------------------------------
+    elif game_state == "GAME_OVER":
+        screen.blit(menu_bg_img, (0, 0))
+        go_text = title_font.render("GAME OVER", True, red)
+        screen.blit(go_text, go_text.get_rect(center=(width // 2, 180)))
+
+        score_res = font.render(f"Final Score reached: {score}", True, black)
+        screen.blit(score_res, score_res.get_rect(center=(width // 2, 260)))
+
+        high_res = font.render(f"Personal Best Record: {high_score}", True, dark_blue)
+        screen.blit(high_res, high_res.get_rect(center=(width // 2, 310)))
+
+        if draw_button("RETRY RUN", 175, 420, 250, 50, dark_green, light_green):
+            reset_game()
+            game_state = "GAME"
+            pygame.time.delay(150)
+
+        if draw_button("EXIT TO MENU", 175, 490, 250, 50, gray, black):
+            game_state = "MENU"
+            pygame.time.delay(150)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+    pygame.display.flip()
+
+pygame.quit()
